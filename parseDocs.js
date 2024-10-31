@@ -54,6 +54,8 @@ async function fetchAndSaveDocumentAll(arbitr_id) {
         let blockIndex = 1;
         let hasMoreBlocks = true; 
         let stringData = '';
+        let blockCount = 0; // Счетчик блоков
+
         while (hasMoreBlocks) {
             // Формируем URL для текущего блока
             const url = blockIndex === 1 
@@ -85,7 +87,8 @@ async function fetchAndSaveDocumentAll(arbitr_id) {
                 });
                 
                 if (response.data) {
-                    stringData = stringData + cleanText(response.data);
+                    stringData += cleanText(response.data);
+                    blockCount++; // Увеличиваем счетчик блоков
                     console.log(`Successfully fetched block ${blockIndex} for document ${arbitr_id}.`);
                 } else {
                     console.log(`No data returned for block ${blockIndex} for document ${arbitr_id}.`);
@@ -93,7 +96,6 @@ async function fetchAndSaveDocumentAll(arbitr_id) {
 
                 // Переходим к следующему блоку
                 blockIndex++;
-
             } catch (error) {
                 if (error.response && error.response.status === 404) {
                     // Если получаем статус 404, значит, следующего блока нет
@@ -106,23 +108,24 @@ async function fetchAndSaveDocumentAll(arbitr_id) {
                 } else {
                     // Если другая ошибка, логируем её
                     console.error(`Error fetching block ${blockIndex} for document ${arbitr_id}:`, error.message);
-                    // Можно оставить hasMoreBlocks = true, чтобы продолжить с остальными блоками, если есть
                     hasMoreBlocks = false; // Остановить процесс
                 }
             }
         }
 
-        if (stringData) {
+        // Сохраняем данные только если количество блоков больше или равно 3
+        if (blockCount >= 3 && stringData) {
             await saveDataToFile(arbitr_id, stringData);
             console.log(`All blocks for document ${arbitr_id} have been combined and saved.`);
         } else {
-            console.log(`No content found for document ${arbitr_id}.`);
+            console.log(`Document ${arbitr_id} has less than 3 blocks and will not be saved.`);
         }
 
     } catch (error) {
         console.error(`Error fetching and saving document ${arbitr_id}:`, error);
     }
 }
+
 
 
 
