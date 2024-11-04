@@ -6,7 +6,7 @@ const { htmlToText } = require('html-to-text');
 
 async function getDocumentsToParse() {
     try {
-        const data = await fs.readFile('doc_numbers2.txt', 'utf8');
+        const data = await fs.readFile('doc_numbers.txt', 'utf8');
         // Разделяем данные по строкам
         const rows = data.split('\n').map(line => line.trim());
         // Вывод строк в консоль
