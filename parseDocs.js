@@ -51,23 +51,19 @@ async function saveDataToFile(filename, data) {
 
 async function fetchAndSaveDocumentAll(arbitr_id) {
     try {
-        let blockIndex = 1;
-        let hasMoreBlocks = true; 
+        let blockIndex = 1; // Инициализация blockIndex
+        let hasMoreBlocks = true;
         let stringData = '';
-        let blockCount = 0; // Счетчик блоков
+        let blockCount = 0;
 
         while (hasMoreBlocks) {
-            // Формируем URL для текущего блока
-            const url = blockIndex === 1 
-                ? `https://sudrf.cntd.ru/document/${arbitr_id}` 
-                : `https://sudrf.cntd.ru/docs/document/${arbitr_id}/content/text/block/${blockIndex}?strict=true`;
+            const blockBatch = []; // Массив для хранения запросов блоков
+            for (let i = 0; i < 5 && hasMoreBlocks; i++) { // запускаем 5 запросов за раз
+                const url = blockIndex === 1 
+                    ? `https://sudrf.cntd.ru/document/${arbitr_id}` 
+                    : `https://sudrf.cntd.ru/docs/document/${arbitr_id}/content/text/block/${blockIndex}?strict=true`;
 
-            console.log(`Fetching block ${blockIndex} for document ${arbitr_id}: ${url}`);
-
-            try {
-                // Выполняем запрос
-                const response = await axios.get(url, {
-                    headers: {
+                blockBatch.push(axios.get(url, { headers: {
                         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                         'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
                         'Cache-Control': 'no-cache',
@@ -82,45 +78,32 @@ async function fetchAndSaveDocumentAll(arbitr_id) {
                         'Upgrade-Insecure-Requests': '1',
                         'Referrer-Policy': 'strict-origin-when-cross-origin',
                         'Cookie': 'blockInfo={"901757778":{"version":61003,"heights":{"1":7585}}};'
-                    },
-                    responseType: 'text'
-                });
-                
-                if (response.data) {
-                    stringData += cleanText(response.data);
-                    blockCount++; // Увеличиваем счетчик блоков
-                    console.log(`Successfully fetched block ${blockIndex} for document ${arbitr_id}.`);
-                } else {
-                    console.log(`No data returned for block ${blockIndex} for document ${arbitr_id}.`);
-                }
-
-                // Переходим к следующему блоку
+                    }, responseType: 'text' }).then(response => {
+                    if (response.data) {
+                        stringData += cleanText(response.data);
+                        blockCount++;
+                    } else {
+                        hasMoreBlocks = false;
+                    }
+                }).catch(error => {
+                    if (error.response && (error.response.status === 404 || error.response.status === 400)) {
+                        hasMoreBlocks = false;
+                    } else {
+                        throw error;
+                    }
+                }));
                 blockIndex++;
-            } catch (error) {
-                if (error.response && error.response.status === 404) {
-                    // Если получаем статус 404, значит, следующего блока нет
-                    console.log(`Block ${blockIndex} not found, stopping for document ${arbitr_id}.`);
-                    hasMoreBlocks = false;
-                } else if (error.response && error.response.status === 400) {
-                    // Если получаем статус 400, значит, запрос был неправильным
-                    console.error(`Bad Request for block ${blockIndex} for document ${arbitr_id}:`, error.message);
-                    hasMoreBlocks = false; // Остановить процесс для данного документа
-                } else {
-                    // Если другая ошибка, логируем её
-                    console.error(`Error fetching block ${blockIndex} for document ${arbitr_id}:`, error.message);
-                    hasMoreBlocks = false; // Остановить процесс
-                }
             }
+
+            await Promise.all(blockBatch); // ждем завершения запросов на 5 блоков перед следующим циклом
         }
 
-        // Сохраняем данные только если количество блоков больше или равно 3
         if (blockCount >= 3 && stringData) {
             await saveDataToFile(arbitr_id, stringData);
             console.log(`All blocks for document ${arbitr_id} have been combined and saved.`);
         } else {
             console.log(`Document ${arbitr_id} has less than 3 blocks and will not be saved.`);
         }
-
     } catch (error) {
         console.error(`Error fetching and saving document ${arbitr_id}:`, error);
     }
@@ -128,16 +111,21 @@ async function fetchAndSaveDocumentAll(arbitr_id) {
 
 
 
+async function processDocumentsInBatch(batch) {
+    const results = await Promise.all(batch.map(doc => fetchAndSaveDocumentAll(doc)));
+    results.forEach((_, index) => console.log(`Документ ${batch[index]} обработан.`));
+}
 
 
 
 async function processDocuments() {
+    const MAX_CONCURRENT_REQUESTS = 10;
     const documents = await getDocumentsToParse();
     console.log('всего номеров: ', documents.length);
 
-    for (const doc of documents) {
-        await fetchAndSaveDocumentAll(doc); // Ждём завершения обработки каждого документа перед переходом к следующему
-        console.log(`Документ ${doc} обработан.`);
+    for (let i = 0; i < documents.length; i += MAX_CONCURRENT_REQUESTS) {
+        const batch = documents.slice(i, i + MAX_CONCURRENT_REQUESTS);
+        await processDocumentsInBatch(batch); // обрабатываем каждый пакет, прежде чем перейти к следующему
     }
 
     console.log("Все документы успешно обработаны.");
