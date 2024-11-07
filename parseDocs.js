@@ -98,7 +98,7 @@ async function fetchAndSaveDocumentAll(arbitr_id) {
             await Promise.all(blockBatch); // ждем завершения запросов на 5 блоков перед следующим циклом
         }
 
-        if (blockCount >= 3 && stringData) {
+        if (blockCount >= 4 && stringData) {
             await saveDataToFile(arbitr_id, stringData);
             console.log(`All blocks for document ${arbitr_id} have been combined and saved.`);
         } else {
