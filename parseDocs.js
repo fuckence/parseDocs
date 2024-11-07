@@ -102,7 +102,7 @@ async function fetchAndSaveDocumentAll(arbitr_id) {
             await saveDataToFile(arbitr_id, stringData);
             console.log(`All blocks for document ${arbitr_id} have been combined and saved.`);
         } else {
-            console.log(`Document ${arbitr_id} has less than 3 blocks and will not be saved.`);
+            console.log(`Document ${arbitr_id} has less than 4 blocks and will not be saved.`);
         }
     } catch (error) {
         console.error(`Error fetching and saving document ${arbitr_id}:`, error);
