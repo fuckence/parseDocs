@@ -119,7 +119,7 @@ async function processDocumentsInBatch(batch) {
 
 
 async function processDocuments() {
-    const MAX_CONCURRENT_REQUESTS = 10;
+    const MAX_CONCURRENT_REQUESTS = 20;
     const documents = await getDocumentsToParse();
     console.log('всего номеров: ', documents.length);
 
